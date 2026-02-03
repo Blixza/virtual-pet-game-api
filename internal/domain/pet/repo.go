@@ -2,9 +2,11 @@ package domain_pet
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	sq "github.com/Masterminds/squirrel"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"go.uber.org/zap"
 )
@@ -13,6 +15,7 @@ type Repository interface {
 	Create(ctx context.Context, pet *Model) error
 	Get(ctx context.Context, opts ...Option) (*Model, error)
 	Update(ctx context.Context, pet *Model) (*Model, error)
+	Delete(ctx context.Context, opts ...Option) error
 }
 
 type repo struct {
@@ -62,12 +65,12 @@ func (r repo) Get(ctx context.Context, opts ...Option) (*Model, error) {
 	).From("pets")
 
 	for _, opt := range opts {
-		query = opt(query)
+		query = query.Where(opt())
 	}
 
 	sql, args, err := query.ToSql()
 	if err != nil {
-		return nil, fmt.Errorf("building query: %w", err)
+		return nil, fmt.Errorf("error building query: %w", err)
 	}
 
 	var p Model
@@ -84,6 +87,9 @@ func (r repo) Get(ctx context.Context, opts ...Option) (*Model, error) {
 	)
 
 	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, nil
+		}
 		return nil, err
 	}
 
@@ -114,4 +120,20 @@ func (r repo) Update(ctx context.Context, pet *Model) (*Model, error) {
 	}
 
 	return pet, nil
+}
+
+func (r repo) Delete(ctx context.Context, opts ...Option) error {
+	query := r.sb.Delete("pets")
+
+	for _, opt := range opts {
+		query = query.Where(opt())
+	}
+
+	sql, args, err := query.ToSql()
+	if err != nil {
+		return fmt.Errorf("error building query: %w", err)
+	}
+
+	_, err = r.db.Exec(ctx, sql, args...)
+	return err
 }

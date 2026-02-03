@@ -2,7 +2,6 @@ package service_pet
 
 import (
 	"context"
-	"database/sql"
 	"time"
 	domain_pet "virtual_pet_game/internal/domain/pet"
 
@@ -29,9 +28,9 @@ func (s *Service) Create(
 		Breed:          breed,
 		AgeDays:        0,
 		Level:          0,
-		LastTrainingAt: sql.NullTime{},
+		LastTrainingAt: nil,
 		CreatedAt:      time.Now(),
-		UpdatedAt:      sql.NullTime{},
+		UpdatedAt:      nil,
 	}
 
 	err := s.repo.Create(ctx, pet)
@@ -51,7 +50,7 @@ func (s *Service) Get(
 func (s *Service) Update(
 	ctx context.Context, pet *domain_pet.Model,
 ) (*domain_pet.Model, error) {
-	pet.UpdatedAt = sql.NullTime{Time: time.Now(), Valid: true}
+	*pet.UpdatedAt = time.Now()
 
 	updated, err := s.repo.Update(ctx, pet)
 	if err != nil {
@@ -59,4 +58,10 @@ func (s *Service) Update(
 	}
 
 	return updated, nil
+}
+
+func (s *Service) Delete(
+	ctx context.Context, opts ...domain_pet.Option,
+) error {
+	return s.repo.Delete(ctx, opts...)
 }

@@ -11,6 +11,7 @@ import (
 type Config struct {
 	HttpPort string
 	Level    string
+	Secret   string
 	Log      *zap.Logger
 }
 
@@ -24,8 +25,9 @@ func Load(path string) Config {
 		fmt.Printf("failed to load config by path %s. Using default: %v\n", path, err)
 		return Config{
 			HttpPort: "8080",
-			Level: "level",
-			Log: log,
+			Level:    "level",
+			Secret: "secret-terces-secret",
+			Log:      log,
 		}
 	}
 

@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"net/http"
@@ -11,7 +12,10 @@ import (
 	"virtual_pet_game/config"
 	db_config "virtual_pet_game/config/db"
 	domain_pet "virtual_pet_game/internal/domain/pet"
+	domain_user "virtual_pet_game/internal/domain/user"
+	auth_handler "virtual_pet_game/internal/handler/auth"
 	handler_pet "virtual_pet_game/internal/handler/pet"
+	"virtual_pet_game/internal/middleware"
 	service_pet "virtual_pet_game/internal/service/pet"
 	"virtual_pet_game/pkg/db"
 	"virtual_pet_game/pkg/logger"
@@ -41,11 +45,22 @@ func main() {
 	petService := service_pet.New(petRepo)
 	petHandler := handler_pet.New(petService, log)
 
+	userRepo := domain_user.NewRepository(db)
+	authHandler := auth_handler.New(userRepo, cfg.Secret, log)
+
 	mux := http.NewServeMux()
-	mux.HandleFunc("POST /pets", petHandler.Create)
-	mux.HandleFunc("GET /pets/id/{id}", petHandler.Get)
-	mux.HandleFunc("GET /pets/name/{name}", petHandler.Get)
-	mux.HandleFunc("PUT /pets/id/{id}", petHandler.Update)
+	mux.HandleFunc("POST /register", authHandler.Register)
+	mux.HandleFunc("POST /login", authHandler.Login)
+
+	mux.HandleFunc("GET /ping", func(w http.ResponseWriter, r *http.Request) {
+		json.NewEncoder(w).Encode("pong")
+	})
+
+	mux.Handle("POST /pets", middleware.AuthMiddleware(http.HandlerFunc(petHandler.Create), cfg.Secret))
+	mux.Handle("GET /pets/id/{id}", middleware.AuthMiddleware(http.HandlerFunc(petHandler.Get), cfg.Secret))
+	mux.Handle("GET /pets/name/{name}", middleware.AuthMiddleware(http.HandlerFunc(petHandler.Get), cfg.Secret))
+	mux.Handle("PUT /pets/id/{id}", middleware.AuthMiddleware(http.HandlerFunc(petHandler.Update), cfg.Secret))
+	mux.Handle("DELETE /pets/id/{id}", middleware.AuthMiddleware(http.HandlerFunc(petHandler.Delete), cfg.Secret))
 
 	srv := &http.Server{
 		Addr:    fmt.Sprintf(":%s", cfg.HttpPort),

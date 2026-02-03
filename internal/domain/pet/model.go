@@ -1,20 +1,19 @@
 package domain_pet
 
 import (
-	"database/sql"
 	"time"
 
 	"github.com/google/uuid"
 )
 
 type Model struct {
-	ID             uuid.UUID
-	Name           string
-	Kind           string
-	Breed          string
-	AgeDays        int
-	Level          int
-	LastTrainingAt sql.NullTime
-	CreatedAt      time.Time
-	UpdatedAt      sql.NullTime
+	ID             uuid.UUID  `json:"id"`
+	Name           string     `json:"name"`
+	Kind           string     `json:"kind"`
+	Breed          string     `json:"breed"`
+	AgeDays        int        `json:"age_days"`
+	Level          int        `json:"level"`
+	LastTrainingAt *time.Time `json:"last_training_at,omitempty"`
+	CreatedAt      time.Time  `json:"created_at"`
+	UpdatedAt      *time.Time `json:"updated_at,omitempty"`
 }

@@ -24,6 +24,12 @@ func New(svc *service_pet.Service, log *zap.Logger) *Handler {
 }
 
 func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
+	userID, ok := r.Context().Value("user_id").(uuid.UUID)
+	if !ok {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
 	var req struct {
 		ID             uuid.UUID    `json:"id"`
 		Name           string       `json:"name"`
@@ -43,7 +49,7 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	petExists, err := h.svc.Get(r.Context(), domain_pet.WithName(req.Name))
+	petExists, err := h.svc.Get(r.Context(), domain_pet.WithName(req.Name), domain_pet.WithOwnerID(userID))
 	if err != nil {
 		if !errors.Is(err, pgx.ErrNoRows) {
 			h.log.Error("database error", zap.Error(err))
@@ -58,7 +64,7 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	pet, err := h.svc.Create(r.Context(), req.ID, req.Name, req.Kind, req.Breed)
+	pet, err := h.svc.Create(r.Context(), userID, req.Name, req.Kind, req.Breed)
 	if err != nil {
 		h.log.Error("failed to create pet", zap.Error(err))
 		http.Error(w, "internal error", http.StatusInternalServerError)
@@ -136,4 +142,25 @@ func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
 	h.log.Info("pet updated", zap.Any("pet_id", pet.ID))
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(pet)
+}
+
+func (h *Handler) Delete(w http.ResponseWriter, r *http.Request) {
+	idStr := r.PathValue("id")
+	petID, err := uuid.Parse(idStr)
+	if err != nil {
+		http.Error(w, "invalid pet id", http.StatusBadRequest)
+		return
+	}
+
+	err = h.svc.Delete(r.Context(), domain_pet.WithID(petID))
+	if err != nil {
+		if !errors.Is(err, pgx.ErrNoRows) {
+			h.log.Error("database error", zap.Error(err))
+			http.Error(w, "internal error", http.StatusInternalServerError)
+			return
+		}
+	}
+
+	h.log.Info("pet deleted", zap.Any("pet_id", petID))
+	w.Header().Set("Content-Type", "application/json")
 }
